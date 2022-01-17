@@ -1,0 +1,139 @@
+package com.justai.jaicf.helpers.context
+
+import com.justai.jaicf.activator.selection.ActivationSelector.Companion.default
+import com.justai.jaicf.context.BotContext
+import kotlin.properties.ReadOnlyProperty
+import kotlin.properties.ReadWriteProperty
+import kotlin.reflect.KProperty
+
+/**
+ * An alias for a property delegate of type [V] backed by [BotContext]
+ */
+typealias BotContextProperty<V> = MapBackedProperty<BotContext, V>
+
+/**
+ * Creates a property delegate of type [V] backed by [BotContext.client].
+ *
+ * @param key the key of the entry where to store the property value, if `null` property name is used
+ * @param saveDefault whether to save generated [default] value in the [BotContext.client], `false` by default
+ * @param removeOnNull whether to remove entry from [BotContext.client] on null set, `false` by default
+ * @param default provider of a default value for the entry, [NoSuchElementException] will be thrown by default
+ */
+fun <V> clientProperty(
+    key: String? = null,
+    saveDefault: Boolean = false,
+    removeOnNull: Boolean = false,
+    default: () -> V = { throw NoSuchElementException("No value found for the key specified") }
+) : BotContextProperty<V> = MapBackedProperty(BotContext::client, key, saveDefault, removeOnNull, default)
+
+/**
+ * Creates a property delegate of type [V] backed by [BotContext.session].
+ *
+ * @param key the key of the entry where to store the property value, if `null` property name is used
+ * @param saveDefault whether to save generated [default] value in the [BotContext.session], `false` by default
+ * @param removeOnNull whether to remove entry from [BotContext.session] on null set, `false` by default
+ * @param default provider of a default value for the entry, [NoSuchElementException] will be thrown by default
+ */
+fun <V> sessionProperty(
+    key: String? = null,
+    saveDefault: Boolean = false,
+    removeOnNull: Boolean = false,
+    default: () -> V = { throw NoSuchElementException("No value found for the key specified") }
+) : BotContextProperty<V> = MapBackedProperty(BotContext::session, key, saveDefault, removeOnNull, default)
+
+/**
+ * Creates a property delegate of type [V] backed by [BotContext.temp].
+ *
+ * @param key the key of the entry where to store the property value, if `null` property name is used
+ * @param saveDefault whether to save generated [default] value in the [BotContext.temp], `false` by default
+ * @param removeOnNull whether to remove entry from [BotContext.temp] on null set, `false` by default
+ * @param default provider of a default value for the entry, [NoSuchElementException] will be thrown by default
+ */
+fun <V> tempProperty(
+    key: String? = null,
+    saveDefault: Boolean = false,
+    removeOnNull: Boolean = false,
+    default: () -> V = { throw NoSuchElementException("No value found for the key specified") }
+) : BotContextProperty<V> = MapBackedProperty(BotContext::temp, key, saveDefault, removeOnNull, default)
+
+/**
+ * Allows to bind [ReadWriteProperty] defined on [BotContext] to a receiver of any type [T]
+ * by providing [BotContext] selector function.
+ *
+ * @param context provider of a [BotContext] for type [T]
+ *
+ * @return delegate peroperty on a type [T] backed by the given [ReadWriteProperty]
+ */
+infix fun <T, V> ReadWriteProperty<BotContext, V>.withContext(
+    context: T.() -> BotContext
+) = object : ReadWriteProperty<T, V> {
+    override fun getValue(thisRef: T, property: KProperty<*>): V {
+        return this@withContext.getValue(thisRef.context(), property)
+    }
+
+    override fun setValue(thisRef: T, property: KProperty<*>, value: V) {
+        this@withContext.setValue(thisRef.context(), property, value)
+    }
+}
+
+/**
+ * Allows to bind [ReadOnlyProperty] defined on [BotContext] to a receiver of any type [T]
+ * by providing [BotContext] selector function.
+ *
+ * @param context provider of a [BotContext] for type [T]
+ *
+ * @return delegate peroperty on a type [T] backed by the given [ReadOnlyProperty]
+ */
+infix fun <T, V> ReadOnlyProperty<BotContext, V>.withContext(
+    context: T.() -> BotContext
+) = ReadOnlyProperty<T, V> { thisRef, property -> this@withContext.getValue(thisRef.context(), property) }
+
+
+/**
+ * An implementation of [ReadWriteProperty] backed by some [MutableMap].
+ *
+ * @param T receiver type
+ * @param V property type
+ * @param mapSelector selector of the underlying [MutableMap]
+ * @param key the key of the entry where to store the property value, if `null` property name is used
+ * @param saveDefault whether to save generated [default] value in the map, `false` by default
+ * @param removeOnNull whether to remove entry from the map on null set, `false` by default
+ * @param default provider of a default value for the entry, [NoSuchElementException] will be thrown by default
+ */
+class MapBackedProperty<T, V>(
+    internal val mapSelector: (T) -> MutableMap<String, Any?>,
+    internal val key: String?,
+    internal val saveDefault: Boolean,
+    internal val removeOnNull: Boolean,
+    internal val default: () -> V,
+) : ReadWriteProperty<T, V> {
+
+    override fun getValue(thisRef: T, property: KProperty<*>): V {
+        val map = mapSelector(thisRef)
+        val key = key ?: property.name
+
+        val value = if (map.containsKey(key)) {
+            map[key]
+        } else {
+            val default = default()
+            if (saveDefault) {
+                map[key] = default
+            }
+            default
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        return value as V
+    }
+
+    override fun setValue(thisRef: T, property: KProperty<*>, value: V) {
+        val map = mapSelector(thisRef)
+        val key = key ?: property.name
+
+        if (value == null && removeOnNull) {
+            map.remove(key)
+        } else {
+            map[key] = value
+        }
+    }
+}
