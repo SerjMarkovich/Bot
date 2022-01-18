@@ -14,11 +14,24 @@ typealias BotContextProperty<V> = MapBackedProperty<BotContext, V>
 /**
  * Creates a property delegate of type [V] backed by [BotContext.client].
  *
+ * Definition example:
  * ```kotlin
+ *
  * var BotContext.username by clientProperty<String>()
  * var BotContext.isUserBlocked by clientProperty("blockStatus") { false }
- * var BotContext.order by sessionProperty<Order?>(removeOnNull = true) { null }
- * val BotContext.userInfo by sessionProperty<UserInfo>(saveDefault = true) { getUserInfo(it.clientId) }
+ * var BotContext.order by clientProperty<Order?>(removeOnNull = true) { null }
+ * val BotContext.userInfo by clientProperty<UserInfo>(saveDefault = true) { getUserInfo(it.clientId) }
+ *
+ * ```
+ *
+ * Usage example:
+ * ```kotlin
+ *
+ * action {
+ *   if (context.isUserBlocked) return@action
+ *   reactions.say("Hello, ${context.username}!")
+ * }
+ *
  * ```
  *
  * @param key the key of the entry where to store the property value, if `null` property name is used
