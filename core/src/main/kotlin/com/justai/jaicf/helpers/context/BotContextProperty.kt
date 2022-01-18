@@ -14,6 +14,13 @@ typealias BotContextProperty<V> = MapBackedProperty<BotContext, V>
 /**
  * Creates a property delegate of type [V] backed by [BotContext.client].
  *
+ * ```kotlin
+ * var BotContext.username by clientProperty<String>()
+ * var BotContext.isUserBlocked by clientProperty("blockStatus") { false }
+ * var BotContext.order by sessionProperty<Order?>(removeOnNull = true) { null }
+ * val BotContext.userInfo by sessionProperty<UserInfo>(saveDefault = true) { getUserInfo(it.clientId) }
+ * ```
+ *
  * @param key the key of the entry where to store the property value, if `null` property name is used
  * @param saveDefault whether to save generated [default] value in the [BotContext.client], `false` by default
  * @param removeOnNull whether to remove entry from [BotContext.client] on null set, `false` by default
@@ -23,7 +30,7 @@ fun <V> clientProperty(
     key: String? = null,
     saveDefault: Boolean = false,
     removeOnNull: Boolean = false,
-    default: () -> V = { throw NoSuchElementException("No value found for the key specified") }
+    default: (BotContext) -> V = { throw NoSuchElementException("No value found for the key specified") }
 ) : BotContextProperty<V> = MapBackedProperty(BotContext::client, key, saveDefault, removeOnNull, default)
 
 /**
@@ -33,12 +40,14 @@ fun <V> clientProperty(
  * @param saveDefault whether to save generated [default] value in the [BotContext.session], `false` by default
  * @param removeOnNull whether to remove entry from [BotContext.session] on null set, `false` by default
  * @param default provider of a default value for the entry, [NoSuchElementException] will be thrown by default
+ *
+ * @see clientProperty for examples
  */
 fun <V> sessionProperty(
     key: String? = null,
     saveDefault: Boolean = false,
     removeOnNull: Boolean = false,
-    default: () -> V = { throw NoSuchElementException("No value found for the key specified") }
+    default: (BotContext) -> V = { throw NoSuchElementException("No value found for the key specified") }
 ) : BotContextProperty<V> = MapBackedProperty(BotContext::session, key, saveDefault, removeOnNull, default)
 
 /**
@@ -48,12 +57,14 @@ fun <V> sessionProperty(
  * @param saveDefault whether to save generated [default] value in the [BotContext.temp], `false` by default
  * @param removeOnNull whether to remove entry from [BotContext.temp] on null set, `false` by default
  * @param default provider of a default value for the entry, [NoSuchElementException] will be thrown by default
+ *
+ * @see clientProperty for examples
  */
 fun <V> tempProperty(
     key: String? = null,
     saveDefault: Boolean = false,
     removeOnNull: Boolean = false,
-    default: () -> V = { throw NoSuchElementException("No value found for the key specified") }
+    default: (BotContext) -> V = { throw NoSuchElementException("No value found for the key specified") }
 ) : BotContextProperty<V> = MapBackedProperty(BotContext::temp, key, saveDefault, removeOnNull, default)
 
 /**
@@ -105,7 +116,7 @@ class MapBackedProperty<T, V>(
     internal val key: String?,
     internal val saveDefault: Boolean,
     internal val removeOnNull: Boolean,
-    internal val default: () -> V,
+    internal val default: (T) -> V,
 ) : ReadWriteProperty<T, V> {
 
     override fun getValue(thisRef: T, property: KProperty<*>): V {
@@ -115,7 +126,7 @@ class MapBackedProperty<T, V>(
         val value = if (map.containsKey(key)) {
             map[key]
         } else {
-            val default = default()
+            val default = default(thisRef)
             if (saveDefault) {
                 map[key] = default
             }
