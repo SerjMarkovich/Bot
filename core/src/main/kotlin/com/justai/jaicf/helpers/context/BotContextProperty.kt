@@ -62,7 +62,7 @@ fun <V> tempProperty(
  *
  * @param context provider of a [BotContext] for type [T]
  *
- * @return delegate peroperty on a type [T] backed by the given [ReadWriteProperty]
+ * @return delegate property on a type [T] backed by the given [ReadWriteProperty]
  */
 infix fun <T, V> ReadWriteProperty<BotContext, V>.withContext(
     context: T.() -> BotContext
